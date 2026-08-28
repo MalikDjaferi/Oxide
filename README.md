@@ -2,7 +2,7 @@
 
 **An open-source operating system built from scratch in Rust.**
 
->  **Oxide is in very early development.** Everything is experimental and subject to change.
+> **Oxide is in very early development.** Everything is experimental and subject to change.
 
 ## About
 
@@ -14,19 +14,29 @@ Oxide is designed to be developed openly, with the long-term goal of allowing an
 
 ## Goals
 
-*  Rust-first kernel
-*  Open-source development
-*  General-purpose computing
-*  Modern hardware support
-*  Strong focus on safety and reliability
-*  Community-driven development
-*  A flexible foundation for future Oxide-based distributions
+* Rust-first kernel
+* Open-source development
+* General-purpose computing
+* Modern hardware support
+* Strong focus on safety and reliability
+* Community-driven development
+* A flexible foundation for future Oxide-based distributions
 
 ## Current Status
 
 **Very early development.**
 
 Right now, the project is primarily focused on building the kernel and establishing the foundations of the operating system.
+
+## Contributing
+
+Oxide is open to contributions from the community.
+
+If you have code, patches, documentation, hardware-related information, or other files that could help improve Oxide, you can send them to:
+
+**[projectoxide.development@gmail.com](mailto:projectoxide.development@gmail.com)**
+
+Please include a short description of what you are sending and how it could help the project.
 
 ## License
 
@@ -36,4 +46,4 @@ See [`LICENSE`](LICENSE) for the full license text.
 
 ---
 
-*Started in 27.08.2026.*
+*Started on 27.08.2026.*
