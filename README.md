@@ -36,4 +36,4 @@ See [`LICENSE`](LICENSE) for the full license text.
 
 ---
 
-*Started in 2026.*
+*Started in 27.08.2026.*
