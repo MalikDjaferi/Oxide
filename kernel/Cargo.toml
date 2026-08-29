@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bootloader_api = "0.11.17"
+# Limine provides the Rust interface for communicating with the Limine bootloader.
 limine = "0.6.5"

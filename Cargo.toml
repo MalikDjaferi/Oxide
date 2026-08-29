@@ -1,5 +1,15 @@
 [workspace]
 resolver = "3"
+
+# Oxide currently consists of one kernel crate.
+#
+# More crates will eventually be added here for things such as:
+#
+#        - memory management
+#        - drivers
+#        - filesystem support
+#        - process management
+#        - userspace programs
 members = ["kernel"]
 
 [package]
@@ -7,6 +17,7 @@ name = "oxide"
 version = "0.1.0"
 edition = "2024"
 
-[build-dependencies]
-oxide-kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
-bootloader = { version = "0.11.17", default-features = false, features = ["bios"] }
+# The root packages does not need build dependencies yet.
+#
+# The kernel will be compiled seperately then placed into a 
+# bootable Limine image.
