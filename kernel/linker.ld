@@ -1,74 +1,118 @@
-/*
- * Oxide kernel linker script.
- *
- * The linker script controls the final layout of the kernel ELF.
- *
- * Limine requires ELF program headers with different permissions
- * to not share the same memory page. Each permission group is
- * therefore separated by a full 4 KiB page boundary.
- */
-
-/*
- * Tell the linker that _start is the first instruction executed
- * when Limine transfers control to the Oxide kernel.
- */
 ENTRY(_start)
 
-/*
- * Define the kernel's virtual memory layout.
- */
+PHDRS
+{
+    rodata PT_LOAD FLAGS(4);
+    text   PT_LOAD FLAGS(5);
+    data   PT_LOAD FLAGS(6);
+    dynamic PT_DYNAMIC FLAGS(6);
+}
+
 SECTIONS
 {
-    /*
-     * Oxide lives in the higher half of the virtual address space.
-     */
     . = 0xffffffff80000000;
 
-    /*
-     * Read-only data.
-     *
-     * This region contains ELF metadata and other read-only data.
-     */
-    .rodata : ALIGN(0x1000)
+    /* ---------------------------------------------------------------
+     * READ-ONLY
+     * --------------------------------------------------------------- */
+
+    .rodata ALIGN(0x1000) :
     {
         *(.rodata .rodata.*)
-    }
+    } :rodata
 
-    /*
-     * Executable kernel code.
-     *
-     * Place the code on its own 4 KiB page so it cannot share
-     * a page with read-only or writable memory.
-     */
+    .limine_requests_start :
+    {
+        KEEP(*(.limine_requests_start))
+    } :rodata
+
+    .limine_requests :
+    {
+        KEEP(*(.limine_requests))
+    } :rodata
+
+    .limine_requests_end :
+    {
+        KEEP(*(.limine_requests_end))
+    } :rodata
+
+    .dynsym :
+    {
+        *(.dynsym)
+    } :rodata
+
+    .gnu.hash :
+    {
+        *(.gnu.hash)
+    } :rodata
+
+    .hash :
+    {
+        *(.hash)
+    } :rodata
+
+    .dynstr :
+    {
+        *(.dynstr)
+    } :rodata
+
+    .rela.dyn :
+    {
+        *(.rela.dyn)
+    } :rodata
+
+    .eh_frame_hdr :
+    {
+        *(.eh_frame_hdr)
+    } :rodata
+
+    .eh_frame :
+    {
+        *(.eh_frame)
+    } :rodata
+
+    /* ---------------------------------------------------------------
+     * EXECUTABLE
+     * --------------------------------------------------------------- */
+
     . = ALIGN(0x1000);
 
     .text :
     {
         *(.text .text.*)
-    }
+    } :text
 
-    /*
-     * Writable initialized data.
-     *
-     * Move to the next complete page before beginning writable data.
-     */
+    /* ---------------------------------------------------------------
+     * WRITABLE
+     * --------------------------------------------------------------- */
+
     . = ALIGN(0x1000);
 
     .data :
     {
         *(.data .data.*)
-    }
+    } :data
 
-    /*
-     * Writable zero-initialized data.
-     *
-     * Keep BSS on a page boundary as well.
-     */
-    . = ALIGN(0x1000);
+    .got :
+    {
+        *(.got)
+        *(.got.plt)
+    } :data
 
-    .bss :
+    .bss ALIGN(0x1000) :
     {
         *(COMMON)
         *(.bss .bss.*)
-    }
+    } :data
+
+    /*
+     * IMPORTANT:
+     *
+     * .dynamic is mapped to BOTH the writable LOAD segment and the
+     * PT_DYNAMIC program header.
+     */
+    .dynamic :
+    {
+        *(.dynamic)
+    } :data :dynamic
 }
