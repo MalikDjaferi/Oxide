@@ -6,3 +6,11 @@ edition = "2024"
 [dependencies]
 # Limine provides the Rust interface for communicating with the Limine bootloader.
 limine = "0.6.5"
+
+# The x86_64 crate provides safe-ish Rust abstractions for x86_64 CPU features,
+# including the Interrupt Descriptor Table and interrupt handler support.
+x86_64 = "0.15.4"
+
+# This crate provides support for the legacy 8259 Programmable Interrupt
+# Controllers used to deliver hardware interrupts such as keyboard IRQs.
+pic8259 = "0.11.0"

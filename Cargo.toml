@@ -1,22 +1,39 @@
 [workspace]
 resolver = "3"
 
-# Oxide currently consists of one kernel crate.
+# Oxide currently consists of the kernel crate.
 #
-# More crates will eventually be added here for:
+# Additional kernel subsystems will eventually become separate crates for:
 #
 # - memory management
 # - drivers
 # - filesystem support
 # - process management
-# - userspace programs
+# - userspace
 members = ["kernel"]
+
+# ----------------------------------------------------------------------------
+# ROOT PACKAGE
+# ----------------------------------------------------------------------------
+#
+# The root package is used to assemble the final Oxide boot image.
+#
+# It is NOT the operating-system kernel itself.
+#
+# The actual bare-metal kernel lives in:
+#
+#     kernel/
+#
+# Keeping this distinction means Cargo does not try to compile the root
+# package as an x86_64-unknown-none executable.
+# ----------------------------------------------------------------------------
 
 [package]
 name = "oxide"
 version = "0.1.0"
 edition = "2024"
 
-# The root package is responsible for assembling the final bootable
-# Oxide image after the kernel has been compiled.
+# The build script assembles the kernel into the final bootable ISO.
+build = "build.rs"
+
 [build-dependencies]

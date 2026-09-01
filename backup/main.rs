@@ -8,7 +8,7 @@
 //! The bootloader transfers execution directly to `_start()`.
 //!
 //! Current initialization:
-//!
+//
 //!     Limine
 //!       ↓
 //!     _start()
@@ -21,9 +21,7 @@
 //!       ↓
 //!     Keyboard
 //!       ↓
-//!     Shell
-//!       ↓
-//!     Main shell loop
+//!     Main kernel loop
 //!
 //! A temporary PS/2 diagnostic is included in this file to determine whether
 //! raw keyboard bytes are reaching the kernel.
@@ -37,14 +35,12 @@
 //
 // These are the existing Oxide kernel subsystems.
 //
-// We are not replacing or redesigning them here. The keyboard driver already
-// successfully receives PS/2 bytes, so the kernel now hands decoded input
-// to the shell subsystem.
+// We are not replacing or redesigning them here. The current investigation is
+// specifically about why keyboard input is not reaching the terminal.
 
 mod gdt;
 mod keyboard;
 mod terminal;
-mod shell;
 
 // ============================================================================
 // LIMINE FRAMEBUFFER REQUEST
@@ -105,7 +101,7 @@ fn debug_qemu_byte(byte: u8) {
     }
 }
 
-/// Print an 8-bit value as two hexadecimal characters to QEMU.
+/// Print an 8-bit value as two hexadecimal characters.
 ///
 /// For example:
 ///
@@ -166,13 +162,10 @@ fn debug_qemu_hex(byte: u8) {
 //          terminal
 //
 // NOTE:
-//
 // The raw diagnostic consumes the byte from port 0x60. Therefore the normal
 // keyboard driver will not see bytes consumed by this diagnostic.
 //
-// The functions are intentionally kept here because they are useful for
-// low-level keyboard debugging. They are simply no longer called by the
-// normal kernel loop, so they do not steal input from the keyboard driver.
+// That is intentional for this temporary debugging stage.
 
 /// Read the PS/2 controller status register.
 ///
@@ -227,76 +220,14 @@ fn debug_ps2_read_data() -> u8 {
     data
 }
 
-/// Print one hexadecimal digit directly through the existing terminal.
-///
-/// We intentionally use `terminal::print()` because that function already
-/// exists in Oxide's terminal subsystem. This avoids adding another terminal
-/// API just for a temporary diagnostic.
-fn terminal_print_hex_digit(value: u8) {
-    match value {
-        // Decimal hexadecimal digits.
-        0 => terminal::print("0"),
-        1 => terminal::print("1"),
-        2 => terminal::print("2"),
-        3 => terminal::print("3"),
-        4 => terminal::print("4"),
-        5 => terminal::print("5"),
-        6 => terminal::print("6"),
-        7 => terminal::print("7"),
-        8 => terminal::print("8"),
-        9 => terminal::print("9"),
-
-        // Alphabetic hexadecimal digits.
-        10 => terminal::print("A"),
-        11 => terminal::print("B"),
-        12 => terminal::print("C"),
-        13 => terminal::print("D"),
-        14 => terminal::print("E"),
-        15 => terminal::print("F"),
-
-        // This should never happen because the function receives a nibble.
-        _ => terminal::print("?"),
-    }
-}
-
-/// Print an 8-bit value as two hexadecimal characters directly into the
-/// Oxide framebuffer terminal.
-///
-/// For example:
-///
-///     0x1C
-///
-/// becomes:
-///
-///     1C
-///
-/// This is the important part of this diagnostic: we can now see raw PS/2
-/// bytes directly inside Oxide instead of relying on QEMU's debug console.
-fn terminal_print_hex(byte: u8) {
-    // Extract the upper four bits.
-    let high_nibble = byte >> 4;
-
-    // Extract the lower four bits.
-    let low_nibble = byte & 0x0F;
-
-    // Print both hexadecimal digits.
-    terminal_print_hex_digit(high_nibble);
-    terminal_print_hex_digit(low_nibble);
-}
-
-/// Print a raw PS/2 byte to both QEMU's debug console and the Oxide terminal.
+/// Print a raw PS/2 byte to QEMU's debug console.
 ///
 /// Example:
 ///
 ///     [PS2] 1C
 ///
-/// Seeing this inside Oxide proves that a byte reached the kernel from the
-/// PS/2 controller.
+/// This makes it obvious which values came from the PS/2 controller.
 fn debug_print_ps2_byte(byte: u8) {
-    // ------------------------------------------------------------------------
-    // Print the diagnostic through QEMU's debug console.
-    // ------------------------------------------------------------------------
-
     debug_qemu_byte(b'[');
     debug_qemu_byte(b'P');
     debug_qemu_byte(b'S');
@@ -310,18 +241,6 @@ fn debug_print_ps2_byte(byte: u8) {
     // End the diagnostic line.
     debug_qemu_byte(b'\r');
     debug_qemu_byte(b'\n');
-
-    // ------------------------------------------------------------------------
-    // Print the same diagnostic directly inside Oxide.
-    // ------------------------------------------------------------------------
-
-    terminal::print("[PS2] ");
-
-    // Print the byte as two hexadecimal characters.
-    terminal_print_hex(byte);
-
-    // Put every raw scancode on its own line so the output is easy to read.
-    terminal::println("");
 }
 
 /// Print a message showing that the PS/2 diagnostic has started.
@@ -385,7 +304,6 @@ pub extern "C" fn _start() -> ! {
     // ------------------------------------------------------------------------
     //
     // Initialize the existing Global Descriptor Table.
-
     gdt::init();
 
     // ------------------------------------------------------------------------
@@ -399,13 +317,15 @@ pub extern "C" fn _start() -> ! {
     // In the version of the Limine crate used by Oxide, `.framebuffers()`
     // returns a slice rather than an iterator.
     //
-    // Therefore we use `.first()` instead of `.next()`.
+    // Therefore we use array indexing instead of `.next()`.
 
     let framebuffer_response = LIMINE_FRAMEBUFFER_REQUEST
         .response()
         .expect("Limine did not provide a framebuffer");
 
     // Get the first framebuffer returned by Limine.
+    //
+    // `.first()` works because `framebuffers()` returns a slice.
     let framebuffer = framebuffer_response
         .framebuffers()
         .first()
@@ -420,8 +340,14 @@ pub extern "C" fn _start() -> ! {
     // ------------------------------------------------------------------------
     //
     // Initialize the existing keyboard subsystem.
-
     keyboard::init();
+
+    // ------------------------------------------------------------------------
+    // INITIAL TERMINAL PROMPT
+    // ------------------------------------------------------------------------
+    //
+    // This confirms that the kernel successfully reached the main loop.
+    terminal::print("OXIDE> ");
 
     // ------------------------------------------------------------------------
     // QEMU PS/2 DEBUG STARTUP MESSAGE
@@ -431,29 +357,95 @@ pub extern "C" fn _start() -> ! {
     //
     // It appears in the terminal where QEMU was launched when `-debugcon
     // stdio` is used.
-
     debug_print_startup();
 
-    // ------------------------------------------------------------------------
-    // START OXIDE SHELL
-    // ------------------------------------------------------------------------
+    // ========================================================================
+    // MAIN KERNEL LOOP
+    // ========================================================================
     //
-    // The shell now owns the main keyboard polling loop.
+    // Oxide currently uses polling for keyboard input.
     //
-    // This keeps the kernel entry point focused on initialization while the
-    // shell handles:
+    // Eventually we can replace this with a proper interrupt-driven input
+    // system using IRQ1 and the IDT.
     //
-    //     - command input
-    //     - command history
-    //     - backspace
-    //     - Enter
-    //     - Tab
-    //     - command parsing
-    //     - command execution
-    //
-    // `shell::run()` never returns.
+    // For now, the goal is simply to prove that keyboard bytes are arriving.
 
-    shell::run();
+    loop {
+        // --------------------------------------------------------------------
+        // RAW PS/2 DIAGNOSTIC
+        // --------------------------------------------------------------------
+        //
+        // Read the current PS/2 controller status.
+        let ps2_status = debug_ps2_status();
+
+        // Bit 0 is the Output Buffer Status flag.
+        //
+        // If it is set, port 0x60 contains a byte waiting for us.
+        if ps2_status & 0x01 != 0 {
+            // Read the raw byte from the controller.
+            let raw_byte = debug_ps2_read_data();
+
+            // Send that raw byte to QEMU's debug console.
+            debug_print_ps2_byte(raw_byte);
+        }
+
+        // --------------------------------------------------------------------
+        // EXISTING KEYBOARD DRIVER
+        // --------------------------------------------------------------------
+        //
+        // Keep the existing keyboard decoder running.
+        //
+        // During this diagnostic, the raw reader above may consume the
+        // controller byte first. That is expected.
+        //
+        // Once we determine exactly what the controller is sending, this
+        // diagnostic reader can be removed and the proper driver can be
+        // fixed without changing unrelated kernel code.
+
+        if let Some(character) = keyboard::poll() {
+            // ----------------------------------------------------------------
+            // BACKSPACE
+            // ----------------------------------------------------------------
+            if character == '\x08' {
+                terminal::backspace();
+
+            // ----------------------------------------------------------------
+            // ENTER
+            // ----------------------------------------------------------------
+            } else if character == '\n' {
+                terminal::println("");
+                terminal::print("OXIDE> ");
+
+            // ----------------------------------------------------------------
+            // TAB
+            // ----------------------------------------------------------------
+            } else if character == '\t' {
+                terminal::print("    ");
+
+            // ----------------------------------------------------------------
+            // NORMAL CHARACTER
+            // ----------------------------------------------------------------
+            } else {
+                // A Rust `char` can require up to four bytes in UTF-8.
+                let mut buffer = [0u8; 4];
+
+                // Encode the character into UTF-8.
+                let text = character.encode_utf8(&mut buffer);
+
+                // Send the encoded text to the existing terminal.
+                terminal::print(text);
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // CPU SPIN HINT
+        // --------------------------------------------------------------------
+        //
+        // The kernel is currently using a polling loop.
+        //
+        // `spin_loop()` tells the CPU that this is an intentional busy-wait.
+        core::hint::spin_loop();
+    }
 }
 
 // ============================================================================
